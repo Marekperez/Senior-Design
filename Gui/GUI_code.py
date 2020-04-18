@@ -40,13 +40,11 @@ class Window:
         root.title("Starting")
         self.Restore()
         
-        start = True
-        
         #creates a stop button
         self.stop2_button = Button(text="Stop", height=2, width=20, command=self.stop)
-        
         self.stop2_button.place(relx=0.5, rely=0.5, anchor=CENTER)
         
+        start = True
         
         #this flag says the servo is 90 degrees
         flag = 1
@@ -109,7 +107,7 @@ class Window:
                 time.sleep(1)
                 
      
-
+    #stops the machine
     def stop(self):
         start = False
         GPIO.output(Pump, GPIO.HIGH)
