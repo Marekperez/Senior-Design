@@ -5,6 +5,8 @@ import PiMotor
 import time
 import VL53L0X
 import RPi.GPIO as GPIO
+from subprocess import call
+import threading
 
 #global boolian variable for start while loop
 start = False       
@@ -15,6 +17,22 @@ Pump = 16
 #pwm for servo pin
 PWM = 13
 
+
+class page2:
+    def stop(self):
+        start = False
+        GPIO.setup(VF,GPIO.OUT)
+        GPIO.setup(Pump,GPIO.OUT)
+        GPIO.output(Pump, GPIO.HIGH)
+        GPIO.output(VF, GPIO.LOW)
+        GPIO.cleanup()
+        GPIO.setmode(GPIO.BOARD)
+        self.Restore()
+        self.__init__(root)
+
+
+
+
 class Window:
 
     def __init__(self, master):
@@ -24,28 +42,31 @@ class Window:
         root.title("Automated iButton Device GUI")
 
         #creating the buttons, the command atribute calls the function
-        self.start_button = Button(master, text="Start System", height=2, width=12, bd=3, command=self.start)
+        self.start_button = Button(master, text="Start System", height=2, width=12, bd=3, command=lambda: self.start(master) )
         self.test_button = Button(master, text="Test Component", height=2, width=12, bd=3, command=self.test)
-        self.report_button = Button(master, text="View Report", height=2, width=12, bd=3)
-        self.stop_button = Button(master, text="Stop", height=2, width=12, bd=3)
+        self.stop_button = Button(master, text="Stop", height=2, width=12, bd=3, command = self.stop)
 
         #displaying the buttons in the GUI, change relx and rely to move buttons around
         self.start_button.place(relx=0.5, rely=0.3, anchor=CENTER)
         self.test_button.place(relx=0.5, rely=0.5, anchor=CENTER)
-        self.report_button.place(relx=0.5, rely=0.7, anchor=CENTER)
-        self.stop_button.place(relx=0.5, rely=0.9, anchor=CENTER)
+        self.stop_button.place(relx=0.5, rely=0.7, anchor=CENTER)
 
-    #this function will handle the starting process of the device
-    def start(self):
+    #stars the main machine        
+    def start(self, master):
         root.title("Starting")
         self.Restore()
         
         #creates a stop button
-        self.stop2_button = Button(text="Stop", height=2, width=20, command=self.stop)
+        self.stop2_button = Button(master, text="Stop", height=2, width=20, command= self.stop1)
         self.stop2_button.place(relx=0.5, rely=0.5, anchor=CENTER)
-        
+        #splits the threads to allow th buton and the code to run in parallel
+        thread =threading.Thread(target = self.runit)
+        thread.start()
+
+    
+    def runit(self):
         start = True
-        
+
         #this flag says the servo is 90 degrees
         flag = 1
         #rerolling stepper motor
@@ -74,8 +95,8 @@ class Window:
         timing = tof.get_timing()
         if (timing < 20000):
             timing = 20000
-    
-        while start == True:  
+        
+        while start == True:
             distance = tof.get_distance()
             #sleeps long enough to get the range 
             time.sleep(timing/1000000.00)
@@ -108,14 +129,23 @@ class Window:
                 
      
     #stops the machine
-    def stop(self):
+    def stop1(self):
         start = False
+        #sets all the pins to low 
+        GPIO.setup(VF,GPIO.OUT)
+        GPIO.setup(Pump,GPIO.OUT)
         GPIO.output(Pump, GPIO.HIGH)
         GPIO.output(VF, GPIO.LOW)
+        #clears the pins 
         GPIO.cleanup()
         GPIO.setmode(GPIO.BOARD)
         self.Restore()
         self.__init__(root)
+    
+        
+    def stop(self):
+        #shuts down the pi when the stop button is pressed
+        call("sudo shutdown -h now", shell = True)
 
     #logic for handling the even when test button is presed 
     def test(self):
@@ -124,19 +154,17 @@ class Window:
 
         #creating the buttons for test
         self.test_FeederBowl = Button(text="Vibrating Feeder Bowl", height=2, width=20, command=self.feederBowl)
-        self.test_Rerolling = Button(text="Rerolling Assembly", height=2, width=20, command=self.rerolling)
-        self.test_ClearCover = Button(text="Clear Cover Remover", height=2, width=20, command=self.clearCover)
+        self.test_RerollClear = Button(text="Reroller and Clear Cover", height=2, width=20, command=self.rerollclear)
         self.test_PickPlace = Button(text="Pick and Place", height=2, width=20, command=self.pickPlace)
         self.test_Pump = Button(text="Pump", height=2, width=20, command=self.pump)
         self.back_button = Button(text="Back", height=2, width=9, command=self.back)
 
         #displaying buttons in GUI
-        self.test_FeederBowl.place(relx=0.1, rely=0.2, anchor=NW)
-        self.test_Rerolling.place(relx=0.1, rely=0.3, anchor=NW)
-        self.test_ClearCover.place(relx=0.1, rely=0.4, anchor=NW)
-        self.test_PickPlace.place(relx=0.1, rely=0.5, anchor=NW)
-        self.test_Pump.place(relx=0.1, rely=0.6, anchor=NW)
-        self.back_button.place(relx=0.1, rely=.9, anchor=NW)
+        self.test_FeederBowl.place(relx=0.5, rely=0.2, anchor=CENTER)
+        self.test_RerollClear.place(relx=0.5, rely=0.3, anchor=CENTER)
+        self.test_PickPlace.place(relx=0.5, rely=0.4, anchor=CENTER)
+        self.test_Pump.place(relx=0.5, rely=0.5, anchor=CENTER)
+        self.back_button.place(relx=0.5, rely=.8, anchor=CENTER)
 
     #this function remove all the widgets(buttons)
     def Restore(self):
@@ -157,7 +185,7 @@ class Window:
         except KeyboardInterrupt:
             GPIO.cleanup()
                            
-    def rerolling(self):
+    def rerollclear(self):
         #git repository for the motor sheild https://github.com/sbcshop/MotorShield.git
         #messagebox.askyesno("Test Feeder Bowl", "This action will produce one full revolution of the sticky pad roller. Do you wish to proceed?")
         #assignes the stepper motors i.e stepper 2 takes up motor 3 and motor 4 slots 
@@ -168,22 +196,6 @@ class Window:
             m1.forward(0.025,20)  # Delay and rotations
             time.sleep(1)
             m1.backward(0.025,20)
-            time.sleep(1)
-
-        except KeyboardInterrupt:
-            GPIO.cleanup()
-
-    def clearCover(self):
-        #git repository for the motor sheild https://github.com/sbcshop/MotorShield.git
-        #messagebox.askyesno("Test Feeder Bowl", "This action will produce one full revolution of the clear cover. Do you wish to proceed?")
-        #assignes the stepper motors i.e stepper 2 takes up motor 3 and motor 4 slots 
-        m2 = PiMotor.Stepper("STEPPER2")
-
-        # Rotate Stepper 2 in forward/backward direction
-        try:
-            m2.forward(0.05,20)  # Delay and rotations
-            time.sleep(1)
-            m2.backward(0.05,20)
             time.sleep(1)
 
         except KeyboardInterrupt:
